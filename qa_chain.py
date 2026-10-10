@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-from langchain_mistralai import ChatMistralAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -11,7 +11,7 @@ from config import (
     LLM_MODEL,
     LLM_TEMPERATURE,
     LLM_MAX_TOKENS,
-    MISTRAL_API_KEY
+    GROQ_API_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,54 +20,57 @@ logger = logging.getLogger(__name__)
 # =========================
 # RAG PROMPT (STRICT)
 # =========================
-RAG_SYSTEM_PROMPT = """You are a precise AI assistant for document question answering.
+
+RAG_SYSTEM_PROMPT = """You are a precise AI assistant for questions about provided documents and webpages.
 
 Rules:
-- Use ONLY the provided context.
-- If answer is not present, say: "I couldn't find this information in the provided document."
-- Do NOT hallucinate.
+- Use ONLY the provided context to answer questions about the source.
+- If the answer is not present, say: "I couldn't find this information in the provided source."
+- Do NOT hallucinate or introduce unsupported facts.
 - Be concise and factual.
+- If the context is insufficient, clearly state that the source does not provide enough information.
 """
 
 
 # =========================
 # CHAT PROMPT
 # =========================
+
 CHAT_SYSTEM_PROMPT = """You are a helpful AI assistant.
 Give clear, accurate, and concise answers."""
 
 
 # =========================
-# LLM INIT (MISTRAL)
+# LLM INIT (GROQ)
 # =========================
+
 def get_llm():
     try:
-        if not MISTRAL_API_KEY:
-            raise ValueError("MISTRAL_API_KEY is missing")
+        if not GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY is missing. Add it to your .env file.")
 
-        logger.info(f"Initializing Mistral LLM: {LLM_MODEL}")
+        logger.info("Initializing Groq LLM: %s", LLM_MODEL)
 
-        llm = ChatMistralAI(
+        llm = ChatGroq(
             model=LLM_MODEL,
             temperature=LLM_TEMPERATURE,
             max_tokens=LLM_MAX_TOKENS,
-            api_key=MISTRAL_API_KEY
+            api_key=GROQ_API_KEY,
         )
 
         return llm
 
     except Exception as e:
-        logger.error(f"LLM init error: {str(e)}")
+        logger.error("LLM init error: %s", str(e))
         raise
 
 
 # =========================
 # FORMAT DOCS
 # =========================
+
 def format_docs(docs: List[Document]) -> str:
-    """
-    Convert retrieved docs into structured context
-    """
+    """Convert retrieved documents into structured context."""
 
     if not docs:
         return "No relevant context found."
@@ -81,6 +84,7 @@ def format_docs(docs: List[Document]) -> str:
 # =========================
 # RAG CHAIN
 # =========================
+
 def create_rag_chain(llm, retriever):
     try:
         if llm is None:
@@ -89,7 +93,7 @@ def create_rag_chain(llm, retriever):
         if retriever is None:
             raise ValueError("Retriever is None")
 
-        logger.info("Creating Mistral RAG chain")
+        logger.info("Creating Groq RAG chain")
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", RAG_SYSTEM_PROMPT),
@@ -109,19 +113,20 @@ def create_rag_chain(llm, retriever):
         return chain
 
     except Exception as e:
-        logger.error(f"RAG chain error: {str(e)}")
+        logger.error("RAG chain error: %s", str(e))
         raise
 
 
 # =========================
 # CHAT CHAIN
 # =========================
+
 def create_chat_chain(llm):
     try:
         if llm is None:
             raise ValueError("LLM is None")
 
-        logger.info("Creating chat chain")
+        logger.info("Creating Groq chat chain")
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", CHAT_SYSTEM_PROMPT),
@@ -131,5 +136,5 @@ def create_chat_chain(llm):
         return prompt | llm | StrOutputParser()
 
     except Exception as e:
-        logger.error(f"Chat chain error: {str(e)}")
+        logger.error("Chat chain error: %s", str(e))
         raise

@@ -1,18 +1,19 @@
-import streamlit as st
-import tempfile
+import html
 import logging
 import os
+import tempfile
+import streamlit as st
 
 from dotenv import load_dotenv
+load_dotenv()
 
-from ingestion import load_pdf, validate_pdf
+from ingestion import load_pdf, load_web_page, validate_pdf
 from chunking import split_docs
 from embedding import get_embeddings
 from vectorstore import create_vectorstore
 from retriever import get_retriever
 from qa_chain import get_llm, create_rag_chain, create_chat_chain
 
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,29 +72,73 @@ button[kind="header"] { color: var(--text-primary) !important; }
     border-right: 1px solid var(--border-color);
 }
 
+[data-testid="stMainBlockContainer"] {
+    max-width: 920px;
+    padding-top: 2rem;
+    padding-bottom: 7rem;
+}
+
 [data-testid="stChatMessage"] {
-    padding: 1.5rem 0 !important;
+    max-width: 820px;
+    margin: 0 auto !important;
+    padding: 1.1rem 0 !important;
     background-color: transparent !important;
-    animation: slideUp 0.4s ease-out;
+    animation: slideUp 0.3s ease-out;
+    gap: 1rem !important;
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(15px); }
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-[data-testid="stChatMessageAvatarUser"] { order: 2; margin-left: 15px; margin-right: 0px !important; }
+[data-testid="stChatMessageAvatarUser"] {
+    order: 2;
+    margin: 0 0 0 12px !important;
+    border: 1px solid var(--border-color);
+}
+
+[data-testid="stChatMessageAvatarAssistant"] {
+    border: 1px solid rgba(255, 107, 43, 0.35);
+    box-shadow: 0 0 14px rgba(255, 107, 43, 0.12);
+}
+
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
     flex-direction: row !important;
     justify-content: flex-end;
 }
 
 [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) .stMarkdown {
-    background-color: var(--user-bubble);
-    padding: 12px 20px;
-    border-radius: 20px 20px 4px 20px;
-    border: 1px solid var(--border-color);
+    max-width: min(78%, 680px);
+    background: linear-gradient(145deg, #1b1b1d, #151516);
+    padding: 0.8rem 1.1rem;
+    border-radius: 20px 20px 5px 20px;
+    border: 1px solid #303033;
     order: 1;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.12);
+}
+
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) .stMarkdown p {
+    margin: 0;
+    line-height: 1.65;
+}
+
+[data-testid="stChatMessage"]:not(:has([data-testid="stChatMessageAvatarUser"])) .stMarkdown {
+    line-height: 1.75;
+    color: #e4e4e7;
+}
+
+[data-testid="stChatMessage"] .stMarkdown pre {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+[data-testid="stChatMessage"] .stMarkdown :not(pre) > code {
+    color: var(--accent-light);
+    background: #1b1715;
+    border: 1px solid rgba(255, 107, 43, 0.18);
+    border-radius: 5px;
+    padding: 0.12rem 0.35rem;
 }
 
 [data-testid="stFileUploader"] {
@@ -104,12 +149,40 @@ button[kind="header"] { color: var(--text-primary) !important; }
 }
 
 [data-testid="stFileUploaderDropzone"] { background-color: transparent !important; border: none !important; }
-[data-testid="stBottom"], [data-testid="stBottomBlockContainer"] { background-color: var(--bg-main) !important; }
+[data-testid="stBottom"], [data-testid="stBottomBlockContainer"] {
+    background: linear-gradient(180deg, transparent 0%, var(--bg-main) 22%) !important;
+}
 
 [data-testid="stChatInput"] {
-    border: 1px solid var(--border-color) !important;
-    border-radius: 12px !important;
-    background-color: var(--input-bg) !important;
+    max-width: 820px;
+    margin: 0 auto;
+    border: 1px solid #333336 !important;
+    border-radius: 18px !important;
+    background: #141415 !important;
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.34);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-testid="stChatInput"]:focus-within {
+    border-color: rgba(255, 107, 43, 0.62) !important;
+    box-shadow: 0 0 0 3px rgba(255, 107, 43, 0.1), 0 10px 36px rgba(0, 0, 0, 0.34);
+}
+
+[data-testid="stChatInput"] textarea {
+    line-height: 1.55;
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+}
+
+[data-testid="stChatInput"] button {
+    color: var(--accent-light) !important;
+    border-radius: 10px !important;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+[data-testid="stChatInput"] button:hover {
+    background: rgba(255, 107, 43, 0.14) !important;
+    transform: translateY(-1px);
 }
 
 .stButton > button {
@@ -144,29 +217,6 @@ div[data-testid="stRadio"] div[role="radiogroup"] {
     border: 1px solid var(--border-color);
 }
 
-.status-badge {
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
-    background: var(--button-gradient);
-    color: white;
-    box-shadow: 0 0 15px rgba(255, 107, 43, 0.2);
-}
-
-.doc-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 10px;
-}
-
-.process-step {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin: 4px 0;
-}
 </style>
 """
 
@@ -178,10 +228,10 @@ st.markdown(DOCUMIND_AI_CSS, unsafe_allow_html=True)
 def init_state():
     defaults = {
         "messages": [],
-        "pdf_loaded": False,
-        "pdf_name": None,
+        "source_loaded": False,
+        "source_name": None,
+        "source_type": None,
         "vectorstore": None,
-        "full_text": None,
         "llm": None,
         "embeddings": None,
         "mode": "Chat",
@@ -195,106 +245,109 @@ def init_state():
 init_state()
 
 # ─────────────────────────────────────────────
-#  PDF PROCESSING
+#  DOCUMENT PROCESSING
 # ─────────────────────────────────────────────
-def process_pdf(uploaded_file):
-    # Clear previous error state
-    st.session_state.process_error = None
-    st.session_state.pdf_loaded = False
-    
-    step_container = st.sidebar.container()
-    
-    def update_steps(current_step, completed_steps):
-        step_container.empty()
-        with step_container:
-            for step in completed_steps:
-                st.markdown(f"✅ <span class='process-step'>{step}</span>", unsafe_allow_html=True)
-            if current_step:
-                st.markdown(f"⏳ <span class='process-step'>{current_step}...</span>", unsafe_allow_html=True)
+def process_documents(docs, source_name, source_type, update_progress):
+    if not docs:
+        raise ValueError("The source contains no readable text.")
 
-    completed = []
+    update_progress(0.5, "Splitting source into chunks...")
+    chunks = split_docs(docs)
+
+    update_progress(0.7, "Generating embeddings...")
+    embeddings = st.session_state.embeddings or get_embeddings()
+
+    update_progress(0.9, "Building search index...")
+    vectorstore = create_vectorstore(chunks, embeddings)
+    llm = st.session_state.llm or get_llm()
+
+    st.session_state.embeddings = embeddings
+    st.session_state.vectorstore = vectorstore
+    st.session_state.llm = llm
+    st.session_state.source_loaded = True
+    st.session_state.source_name = source_name
+    st.session_state.source_type = source_type
+    update_progress(1.0, f"{'PDF' if source_type == 'pdf' else 'Webpage'} ready.")
+
+
+def process_pdf(uploaded_file):
+    st.session_state.process_error = None
+    progress_bar = st.sidebar.progress(0, text="Preparing PDF...")
+
+    def update_progress(progress, message):
+        progress_bar.progress(progress, text=message)
+
     file_path = None
-    
+
     try:
-        update_steps("Saving temporary file", completed)
+        update_progress(0.1, "Saving PDF...")
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(uploaded_file.getbuffer())
             file_path = tmp.name
-        completed.append("File saved")
 
-        update_steps("Validating PDF structure", completed)
+        update_progress(0.25, "Validating PDF...")
         if not validate_pdf(file_path):
             raise ValueError("PDF validation failed: File may be corrupt or encrypted.")
-        completed.append("PDF validated")
 
-        update_steps("Parsing document text", completed)
+        update_progress(0.4, "Extracting PDF text...")
         docs = load_pdf(file_path)
-        if not docs:
-            raise ValueError("PDF loading error: PDF contains no readable text.")
-        
+
         page_count = len(docs)
-        
         if page_count > 100:
-             raise ValueError(f"Document exceeds RAG limit ({page_count}/100 pages).")
-        
-        st.session_state.full_text = "\n\n".join([doc.page_content for doc in docs[:15]])
-        
-        if page_count > 30:
-             st.session_state.consultant_allowed = False
-        else:
-             st.session_state.consultant_allowed = True
+            raise ValueError(f"Document exceeds RAG limit ({page_count}/100 pages).")
 
-        completed.append("Text parsed")
-
-        update_steps("Splitting text into chunks", completed)
-        chunks = split_docs(docs)
-        completed.append("Chunks created")
-
-        update_steps("Generating vector embeddings", completed)
-        if not st.session_state.embeddings:
-            st.session_state.embeddings = get_embeddings()
-        completed.append("Embeddings generated")
-
-        update_steps("Creating vector database", completed)
-        st.session_state.vectorstore = create_vectorstore(chunks, st.session_state.embeddings)
-        st.session_state.llm = st.session_state.llm or get_llm()
-        completed.append("Database ready")
-
-        update_steps(None, completed)
-        st.session_state.pdf_loaded = True
-        st.session_state.pdf_name = uploaded_file.name
-        st.session_state.mode = "RAG"
-        
-        st.session_state.messages.append({
-            "role": "system",
-            "content": f"✅ '{uploaded_file.name}' is ready. Switched to RAG Mode.",
-        })
+        process_documents(docs, uploaded_file.name, "pdf", update_progress)
 
     except Exception as e:
         error_msg = str(e)
         logger.error(f"Processing Error: {error_msg}")
-        st.session_state.process_error = error_msg 
+        st.session_state.process_error = error_msg
     finally:
         if file_path and os.path.exists(file_path):
             os.unlink(file_path)
         st.session_state.processing = False
 
+
+def process_web_url(url):
+    st.session_state.process_error = None
+    progress_bar = st.sidebar.progress(0, text="Preparing webpage...")
+
+    def update_progress(progress, message):
+        progress_bar.progress(progress, text=message)
+
+    try:
+        update_progress(0.2, "Fetching webpage...")
+        docs = load_web_page(url)
+        title = docs[0].metadata.get("title") or docs[0].metadata.get("source") or url
+        update_progress(0.4, "Webpage loaded.")
+        process_documents(docs, title, "webpage", update_progress)
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Webpage processing error: {error_msg}")
+        st.session_state.process_error = error_msg
+    finally:
+        st.session_state.processing = False
+
+
 def get_response(query: str):
     llm = st.session_state.llm or get_llm()
-    
-    if st.session_state.pdf_loaded and st.session_state.mode == "Consultant":
-        prompt = f"Consultant AI: Analyze this text: {st.session_state.full_text}\nUser: {query}"
-        response = llm.invoke(prompt)
-        content = response.content if hasattr(response, 'content') else str(response)
-        return f"👔 **[Consultant Analysis]**\n\n{content}"
 
-    elif st.session_state.pdf_loaded and st.session_state.mode == "RAG":
+    if st.session_state.mode in {"RAG", "Web Search"}:
+        if not st.session_state.source_loaded or st.session_state.vectorstore is None:
+            raise ValueError("Load a PDF or webpage before asking questions in this mode.")
+        if st.session_state.mode == "RAG" and st.session_state.source_type != "pdf":
+            raise ValueError("Load a PDF to use RAG mode.")
+        if st.session_state.mode == "Web Search" and st.session_state.source_type != "webpage":
+            raise ValueError("Load a webpage to use Web Search mode.")
+
         retriever = get_retriever(st.session_state.vectorstore)
         rag_chain = create_rag_chain(llm, retriever)
         response = rag_chain.invoke(query)
         content = response.content if hasattr(response, 'content') else str(response)
-        return f"🔍 **[Deep Search]**\n\n{content}"
-    
+        label = "Deep Search" if st.session_state.mode == "RAG" else "Web Page Search"
+        icon = "🔍" if st.session_state.mode == "RAG" else "🌐"
+        return f"{icon} **[{label}]**\n\n{content}"
+
     else:
         chat_chain = create_chat_chain(llm)
         response = chat_chain.invoke({"question": query})
@@ -318,51 +371,65 @@ with st.sidebar:
     
     st.divider()
 
-    st.markdown("### ⚙️ Response Mode")
-    if st.session_state.pdf_loaded:
-        modes = ["Chat", "RAG", "Consultant"]
-        if not st.session_state.get('consultant_allowed', True):
-            st.warning("Consultant Mode disabled (>30 pages)")
-            modes = ["Chat", "RAG"]
-            if st.session_state.mode == "Consultant":
-                st.session_state.mode = "RAG"
-
-        st.session_state.mode = st.radio(
-            "Select Response Mode:",
-            modes,
-            index=modes.index(st.session_state.mode) if st.session_state.mode in modes else 0,
-            horizontal=True
-        )
-    else:
-        st.info("Upload a PDF to unlock RAG/Consultant modes.")
-        st.session_state.mode = "Chat"
+    st.markdown("### ⚙️ Select Mode")
+    st.session_state.mode = st.radio(
+        "Choose how to chat:",
+        ["Chat", "RAG", "Web Search"],
+        index=["Chat", "RAG", "Web Search"].index(st.session_state.mode)
+        if st.session_state.mode in ["Chat", "RAG", "Web Search"] else 0,
+        horizontal=True,
+        key="mode_selector",
+    )
 
     st.divider()
 
-    if st.session_state.pdf_loaded:
-        st.markdown(f"""
-        <div class="doc-card">
-            <div style="color:var(--accent-orange); font-size:10px; font-weight:bold;">LOADED</div>
-            <div style="color:white; font-size:13px; margin-top:4px;">{st.session_state.pdf_name}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    if st.session_state.mode == "RAG":
+        st.markdown("### 📄 Add a PDF")
+        uploaded_file = st.file_uploader(
+            "Choose a PDF to ask questions about",
+            type="pdf",
+            key="pdf_uploader",
+            disabled=st.session_state.processing,
+        )
+        if uploaded_file:
+            if uploaded_file.name != st.session_state.source_name or st.session_state.source_type != "pdf":
+                if st.button(
+                    "PROCESS PDF",
+                    use_container_width=True,
+                    disabled=st.session_state.processing,
+                ):
+                    st.session_state.processing = True
+                    st.rerun()
+            else:
+                st.button("PDF READY", use_container_width=True, disabled=True)
 
-    st.markdown("### ⬆️ Ingest")
-    uploaded_file = st.file_uploader("Drop PDF", type="pdf", label_visibility="collapsed", key="pdf_uploader", disabled=st.session_state.processing)
-    
-    if uploaded_file:
-        if uploaded_file.name != st.session_state.pdf_name:
-            # FIX: Button is now strictly controlled by the processing state
-            if st.button("PROCESS DOCUMENT", use_container_width=True, disabled=st.session_state.processing):
-                st.session_state.processing = True
-                st.rerun() # Forces the UI to refresh and disable the button immediately
-        else:
-            st.button("DOCUMENT ACTIVE", use_container_width=True, disabled=True)
+        if st.session_state.processing and uploaded_file and not st.session_state.process_error:
+            process_pdf(uploaded_file)
+            st.rerun()
 
-    # Secondary check to trigger logic after rerun
-    if st.session_state.processing and not st.session_state.pdf_loaded and not st.session_state.process_error:
-        process_pdf(uploaded_file)
-        st.rerun()
+    elif st.session_state.mode == "Web Search":
+        st.markdown("### 🌐 Add a webpage")
+        with st.form("web_page_form"):
+            web_url = st.text_input(
+                "Paste a public webpage URL",
+                placeholder="https://example.com/article",
+            )
+            load_webpage = st.form_submit_button(
+                "LOAD WEBPAGE",
+                use_container_width=True,
+                disabled=st.session_state.processing,
+            )
+        if load_webpage:
+            st.session_state.processing = True
+            process_web_url(web_url)
+            st.rerun()
+
+    if st.session_state.source_loaded:
+        source_type_label = "PDF" if st.session_state.source_type == "pdf" else "Webpage"
+        st.caption(
+            f"Loaded {source_type_label}: "
+            f"{html.escape(str(st.session_state.source_name))}"
+        )
 
     if st.session_state.process_error:
         st.error(f"Ingestion Error: {st.session_state.process_error}")
@@ -390,17 +457,11 @@ st.markdown(f"""
     <div>
         <h1 class="gradient-brand" style="font-size:28px; margin:0;">Workspace</h1>
         <p style="color:var(--text-secondary); font-size:12px; margin:0;">
-            {st.session_state.mode} Mode {("- " + st.session_state.pdf_name) if st.session_state.pdf_loaded else ""}
+            {st.session_state.mode} Mode
         </p>
     </div>
-    <span class="status-badge">
-        Active: {st.session_state.mode}
-    </span>
 </div>
 """, unsafe_allow_html=True)
-
-if st.session_state.process_error:
-    st.warning(f"⚠️ **Processing Failed:** {st.session_state.process_error}")
 
 chat_placeholder = st.container()
 
@@ -415,8 +476,7 @@ with chat_placeholder:
             <div style="text-align: center; margin-top: 20px;">
                 <h1 class="gradient-brand" style='font-size: 42px;'>Welcome to DocuMind AI</h1>
                 <p style='color: #a1a1aa; font-size: 16px; max-width: 600px; margin: auto;'>
-                    Your intelligent document companion. Switch modes to search specific facts, 
-                    get professional consulting, or just chat.
+                    Your intelligent companion for asking questions about PDFs, web pages, or anything else.
                 </p>
             </div>
         """, unsafe_allow_html=True)
@@ -432,20 +492,21 @@ with chat_placeholder:
         with c2:
             st.markdown("### 🔍 RAG Search")
             st.markdown("""
-            **PDF Required.** *Deep Retrieval Mode (Max 100 Pgs).* The AI scans your document to find specific facts or data points. Best for finding "needles in a haystack".
+            **PDF Required.** *Deep Retrieval Mode (Max 100 pages).* Load a PDF when you want answers based on your document.
             """)
 
         with c3:
-            st.markdown("### 👔 Consultant")
+            st.markdown("### 🌐 Web Search")
             st.markdown("""
-            **PDF Required.** *Contextual Analysis (Max 30 Pgs).* Instead of searching for facts, the AI evaluates structure, logic, and thematic flow.
+            **Webpage URL Required.** Load a public webpage to ask questions about its content.
             """)
     else:
         for msg in st.session_state.messages:
             if msg["role"] == "system":
                 st.caption(msg["content"])
             else:
-                with st.chat_message(msg["role"]):
+                avatar = "logo.png" if msg["role"] == "assistant" else "🧑"
+                with st.chat_message(msg["role"], avatar=avatar):
                     st.markdown(msg["content"])
 
 # ─────────────────────────────────────────────
@@ -456,17 +517,17 @@ user_input = st.chat_input(f"Message in {st.session_state.mode} mode...")
 if user_input:
     st.session_state.messages.append({"role": "user", "content": user_input})
     with chat_placeholder:
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar="🧑"):
             st.markdown(user_input)
 
     try:
         with chat_placeholder:
-            with st.chat_message("assistant"):
+            with st.chat_message("assistant", avatar="logo.png"):
                 spinner_msg = "Thinking..."
                 if st.session_state.mode == "RAG":
                     spinner_msg = "Searching document..."
-                elif st.session_state.mode == "Consultant":
-                    spinner_msg = "Analysing context..."
+                elif st.session_state.mode == "Web Search":
+                    spinner_msg = "Searching webpage..."
                 elif st.session_state.mode == "Chat":
                     spinner_msg = "Generating response..."
                 

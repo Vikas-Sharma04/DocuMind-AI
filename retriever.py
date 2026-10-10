@@ -18,11 +18,8 @@ def get_retriever(vectorstore, top_k: Optional[int] = None):
 
     logger.info(f"Creating retriever | type={RETRIEVAL_TYPE} | k={k}")
 
-    # ✅ SAFE: similarity (works in all Chroma versions)
     if RETRIEVAL_TYPE == "similarity" or RETRIEVAL_TYPE == "mmr":
 
-        # IMPORTANT:
-        # Do NOT pass fetch_k or lambda_mult manually if your stack is unstable
         retriever = vectorstore.as_retriever(
             search_type="similarity",
             search_kwargs={"k": k}
@@ -56,7 +53,6 @@ def retrieve_documents(
 
     docs = retriever.invoke(query)
 
-    # clean results
     filtered_docs = [
         doc for doc in docs
         if doc.page_content and len(doc.page_content.strip()) > 20

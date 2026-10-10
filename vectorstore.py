@@ -45,11 +45,10 @@ def create_vectorstore(
             f"(filtered from {len(chunks)})"
         )
 
-        # ✅ In-memory vectorstore (NO persist_directory)
         vectorstore = Chroma.from_documents(
             documents=valid_chunks,
             embedding=embeddings,
-            collection_name=f"col_{int(time.time())}" # Needs 'import time'
+            collection_name=f"col_{int(time.time())}" 
         )
 
         logger.info("Vectorstore created successfully (in-memory)")
@@ -72,7 +71,6 @@ def delete_vectorstore(vectorstore: Optional[Chroma]) -> bool:
     """
     try:
         if vectorstore is not None:
-            # In-memory → just dereference
             del vectorstore
             logger.info("Vectorstore deleted from memory")
         return True

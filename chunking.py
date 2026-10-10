@@ -1,7 +1,3 @@
-"""
-Document chunking module (structure-aware for PDFs like experiments)
-"""
-
 import logging
 from typing import List
 from langchain_core.documents import Document
@@ -29,12 +25,11 @@ def split_docs(
             if d.page_content and d.page_content.strip()
         ]
 
-        # 🔥 IMPORTANT: experiment-aware splitting
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             separators=[
-                "\nExperiment ",   # VERY IMPORTANT for your dataset
+                "\nExperiment ",   
                 "\n\n\n",
                 "\n\n",
                 "\n",

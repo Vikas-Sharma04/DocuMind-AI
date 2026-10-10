@@ -1,8 +1,5 @@
-"""
-Embedding module using HuggingFace (local model)
-"""
-
 import logging
+import sys
 import streamlit as st
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
@@ -28,8 +25,10 @@ def load_embeddings():
         return embeddings
 
     except Exception as e:
-        logger.error(f"Error loading embeddings: {str(e)}")
-        raise Exception(f"Failed to load embeddings: {str(e)}")
+        logger.exception("Error loading embeddings with Python interpreter %s", sys.executable)
+        raise RuntimeError(
+            f"Failed to load embeddings using Python interpreter {sys.executable}: {e}"
+        ) from e
 
 
 def get_embeddings():
